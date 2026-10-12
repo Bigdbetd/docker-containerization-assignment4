@@ -24,7 +24,7 @@ jobs:
           docker build -t docker-assignment4 .
           docker run -d -p 3000:3000 --name docker-assignment4-app docker-assignment4
           docker ps
-          curl --fail --retry 20 --retry-delay 2 --retry-connrefused http://localhost:3000/health
+          curl --fail --retry 20 --retry-delay 2 --retry-all-errors http://localhost:3000/health
           curl --fail http://localhost:3000/
           curl --fail http://localhost:3000/api/status
       - name: Capture real browser screenshots
@@ -38,7 +38,7 @@ jobs:
         run: |
           docker stop docker-assignment4-app
           docker start docker-assignment4-app
-          curl --fail --retry 20 --retry-delay 2 --retry-connrefused http://localhost:3000/api/status
+          curl --fail --retry 20 --retry-delay 2 --retry-all-errors http://localhost:3000/api/status
       - name: Save screenshots to repository
         run: |
           git config user.name "github-actions[bot]"
