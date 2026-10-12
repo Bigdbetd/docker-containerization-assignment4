@@ -1,0 +1,56 @@
+name: Verify Docker and capture screenshots
+
+on:
+  push:
+    paths:
+      - Dockerfile
+      - app.js
+      - package*.json
+      - public/**
+      - .github/workflows/verify-docker.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image and start container
+        run: |
+          docker build -t docker-assignment4 .
+          docker run -d -p 3000:3000 --name docker-assignment4-app docker-assignment4
+          docker ps
+          curl --fail --retry 20 --retry-delay 2 --retry-connrefused http://localhost:3000/health
+          curl --fail http://localhost:3000/
+          curl --fail http://localhost:3000/api/status
+      - name: Capture real browser screenshots
+        run: |
+          mkdir -p screenshots
+          npm install --prefix /tmp/browser-capture playwright@1.51.1
+          /tmp/browser-capture/node_modules/.bin/playwright install --with-deps chromium
+          /tmp/browser-capture/node_modules/.bin/playwright screenshot --browser chromium --viewport-size "1280,900" --wait-for-timeout 2000 --full-page http://localhost:3000 screenshots/application.png
+          /tmp/browser-capture/node_modules/.bin/playwright screenshot --browser chromium --viewport-size "1280,900" --wait-for-timeout 1000 --full-page http://localhost:3000/api/status screenshots/api-status.png
+      - name: Practice stopping and restarting
+        run: |
+          docker stop docker-assignment4-app
+          docker start docker-assignment4-app
+          curl --fail --retry 20 --retry-delay 2 --retry-connrefused http://localhost:3000/api/status
+      - name: Save screenshots to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add screenshots/application.png screenshots/api-status.png
+          if ! git diff --cached --quiet; then
+            git commit -m "added screenshots of working application"
+            git push
+          fi
+      - name: Stop and remove test container
+        if: always()
+        run: |
+          docker logs docker-assignment4-app || true
+          docker stop docker-assignment4-app || true
+          docker rm docker-assignment4-app || true
